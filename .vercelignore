@@ -1,3 +1,9 @@
+# secrets — never upload
+.env
+gui/.env
+**/.env
+**/*.env
+
 node_modules
 gui/node_modules
 _build
