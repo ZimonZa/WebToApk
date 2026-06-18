@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebToApk — Website → App Builder</title>
+  <style>
+    :root {
+      --bg: #0b1020; --panel: #131a2e; --line: #243049; --text: #e7ecf5;
+      --muted: #93a0bd; --accent: #6366f1; --accent2: #22d3ee; --ok: #22c55e; --err: #f87171;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; font-family: -apple-system, system-ui, Segoe UI, Roboto, sans-serif;
+      color: var(--text); background: radial-gradient(1200px 600px at 80% -10%, #1b2750 0%, var(--bg) 55%); }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 36px 18px 80px; }
+    h1 { font-size: 28px; margin: 0 0 4px; }
+    h1 span { background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .sub { color: var(--muted); margin: 0 0 24px; font-size: 14px; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 22px; margin-bottom: 18px; }
+    .card h2 { font-size: 15px; margin: 0 0 4px; }
+    .card .desc { color: var(--muted); font-size: 12px; margin: 0 0 8px; }
+    details summary { cursor: pointer; color: var(--accent2); font-size: 13px; }
+    label { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 6px; }
+    input[type=text], input[type=url], input[type=password], select {
+      width: 100%; padding: 11px 13px; border-radius: 10px; border: 1px solid var(--line);
+      background: #0e1424; color: var(--text); font-size: 14px; outline: none; }
+    input:focus, select:focus { border-color: var(--accent); }
+    .row { display: flex; gap: 14px; flex-wrap: wrap; } .row > div { flex: 1; min-width: 180px; }
+    .color-row { display: flex; gap: 10px; align-items: center; }
+    .color-row input[type=color] { width: 46px; height: 42px; padding: 0; border: 1px solid var(--line); border-radius: 10px; background: #0e1424; }
+    .seg { display: flex; gap: 8px; margin-top: 6px; }
+    .seg button { flex: 1; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: #0e1424; color: var(--muted); cursor: pointer; font-size: 13px; }
+    .seg button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .build { margin-top: 22px; width: 100%; padding: 14px; border: 0; border-radius: 12px; cursor: pointer;
+      font-size: 16px; font-weight: 600; color: #fff; background: linear-gradient(90deg, var(--accent), #8b5cf6); }
+    .build:disabled { opacity: .5; cursor: not-allowed; }
+    .hint { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+    .saved { font-size: 12px; color: var(--ok); margin-left: 8px; }
+    #status { margin-top: 20px; display: none; } #status.show { display: block; }
+    .statusline { display: flex; align-items: center; gap: 10px; font-size: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: #0e1424; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--accent2); animation: pulse 1s infinite; }
+    .dot.ok { background: var(--ok); animation: none; } .dot.err { background: var(--err); animation: none; }
+    @keyframes pulse { 50% { opacity: .35; } }
+    .dl { display: inline-block; margin-top: 14px; padding: 12px 18px; border-radius: 10px; background: var(--ok); color: #042; font-weight: 700; text-decoration: none; }
+    a.link { color: var(--accent2); }
+    .ios-note { font-size: 12px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+    code { background: #0e1424; padding: 1px 6px; border-radius: 6px; color: var(--accent2); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1><span>WebToApk</span></h1>
+    <p class="sub">Paste a website URL → build a real Android app in the cloud. Runs entirely in your browser — your token never leaves this device.</p>
+
+    <!-- GitHub connection -->
+    <div class="card">
+      <h2>1. Connect GitHub <span id="connSaved" class="saved" style="display:none">saved ✓</span></h2>
+      <p class="desc">Needs a repo holding the WebToApk workflows, and a token to trigger builds. Stored only in your browser (localStorage).</p>
+      <div class="row">
+        <div>
+          <label>Owner (user/org)</label>
+          <input id="owner" type="text" placeholder="your-github-username" />
+        </div>
+        <div>
+          <label>Repo</label>
+          <input id="repo" type="text" placeholder="WebToApk" />
+        </div>
+        <div>
+          <label>Branch</label>
+          <input id="branch" type="text" placeholder="main" value="main" />
+        </div>
+      </div>
+      <label>GitHub token (PAT)</label>
+      <input id="token" type="password" placeholder="github_pat_… or ghp_…" />
+      <p class="hint">
+        Fine-grained PAT scoped to the repo: <b>Contents</b>, <b>Actions</b>, <b>Workflows</b> = Read &amp; write.
+        (Classic PAT: scopes <code>repo</code> + <code>workflow</code>.)
+        <a class="link" href="https://github.com/settings/tokens?type=beta" target="_blank">Create token →</a>
+      </p>
+      <button id="saveConn" class="build" style="margin-top:10px">Save connection</button>
+    </div>
+
+    <!-- App config -->
+    <div class="card">
+      <h2>2. Your app</h2>
+      <label>Website URL</label>
+      <input id="url" type="url" placeholder="https://example.com" />
+      <div class="row">
+        <div><label>App name</label><input id="appName" type="text" placeholder="My App" /></div>
+        <div><label>Package id</label><input id="packageId" type="text" placeholder="com.company.app" /></div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Theme color</label>
+          <div class="color-row"><input id="themeColorPick" type="color" value="#111827" /><input id="themeColor" type="text" value="#111827" /></div>
+        </div>
+        <div>
+          <label>Orientation</label>
+          <select id="orientation"><option value="default">Default</option><option value="portrait">Portrait</option><option value="landscape">Landscape</option></select>
+        </div>
+      </div>
+      <label>App icon (optional, square PNG ≥ 512px)</label>
+      <input id="icon" type="file" accept="image/png,image/jpeg" />
+      <p class="hint">No icon? A clean default is generated from your theme color + app initial.</p>
+      <label>Platform</label>
+      <div class="seg" id="platformSeg">
+        <button type="button" data-p="android" class="active">Android (APK)</button>
+        <button type="button" data-p="ios">iOS (simulator)</button>
+      </div>
+      <button id="buildBtn" class="build">Build app</button>
+      <p class="ios-note" id="iosNote" style="display:none">
+        iOS builds free on a cloud Mac as an <b>unsigned simulator app</b>. Real iPhone / App Store needs an Apple Developer account ($99/yr).
+      </p>
+      <div id="status">
+        <div class="statusline"><span id="dot" class="dot"></span><span id="statusText">Starting…</span></div>
+        <div id="result"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+node_modules
+gui/node_modules
+_build
+_build_test
+out
+.git
+*.apk
+*.aab
