@@ -24,6 +24,7 @@ import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, cpSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
@@ -88,7 +89,10 @@ run('npm install --no-audit --no-fund');
 
 // ---- 4. prepare source icon at assets/logo.png (1024x1024) ------------------
 async function prepareIcon() {
-  const { default: sharp } = await import(join(cfg.outDir, 'node_modules', 'sharp', 'lib', 'index.js'));
+  // Resolve sharp from the freshly-installed project (CJS) — works cross-platform,
+  // unlike await import() of a raw Windows path (d:\... is not a valid file:// URL).
+  const requireFromOut = createRequire(join(cfg.outDir, 'package.json'));
+  const sharp = requireFromOut('sharp');
   const assetsDir = join(cfg.outDir, 'assets');
   mkdirSync(assetsDir, { recursive: true });
   const out = join(assetsDir, 'logo.png');
