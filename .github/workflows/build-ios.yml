@@ -1,0 +1,74 @@
+name: Build iOS (unsigned / simulator)
+
+# Free iOS build on a macOS runner. Produces an UNSIGNED simulator build.
+# NOTE: installing on a real iPhone or shipping to the App Store requires
+# code signing via the Apple Developer Program ($99/yr). See README.
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "Website URL to wrap"
+        required: true
+      appName:
+        description: "App display name"
+        required: true
+      packageId:
+        description: "Reverse-DNS package id (com.company.app)"
+        required: true
+      themeColor:
+        description: "Theme/background hex color"
+        required: false
+        default: "#111827"
+      buildId:
+        description: "Unique build id (icon read from inputs/<buildId>/icon.png if present)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Scaffold Capacitor project
+        env:
+          APP_URL: ${{ inputs.url }}
+          APP_NAME: ${{ inputs.appName }}
+          APP_ID: ${{ inputs.packageId }}
+          THEME_COLOR: ${{ inputs.themeColor }}
+          PLATFORM: ios
+        run: |
+          ICON="inputs/${{ inputs.buildId }}/icon.png"
+          if [ -f "$ICON" ]; then export ICON_PATH="$ICON"; fi
+          node scripts/scaffold.mjs
+
+      - name: Build for iOS Simulator (unsigned)
+        working-directory: _build/ios/App
+        run: |
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Package .app
+        run: |
+          APP=$(find _build/ios/App/build -name "App.app" -type d | head -n1)
+          mkdir -p out
+          cd "$(dirname "$APP")" && zip -r -y "$GITHUB_WORKSPACE/out/${{ inputs.appName }}-sim.app.zip" "App.app"
+
+      - name: Upload simulator build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.appName }}-ios-sim
+          path: out/*.zip

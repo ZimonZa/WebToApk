@@ -1,0 +1,15 @@
+{
+  "name": "webtoapk",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Generic website → Android/iOS app builder (Capacitor + GitHub Actions cloud build)",
+  "scripts": {
+    "scaffold": "node scripts/scaffold.mjs",
+    "gui": "npm --prefix gui start",
+    "gui:install": "npm --prefix gui install"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

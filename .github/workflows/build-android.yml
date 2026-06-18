@@ -1,0 +1,97 @@
+name: Build Android APK
+
+# Triggered by the WebToApk GUI (or manually from the Actions tab).
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "Website URL to wrap"
+        required: true
+      appName:
+        description: "App display name"
+        required: true
+      packageId:
+        description: "Reverse-DNS package id (com.company.app)"
+        required: true
+      themeColor:
+        description: "Theme/background hex color"
+        required: false
+        default: "#111827"
+      orientation:
+        description: "default | portrait | landscape"
+        required: false
+        default: "default"
+      buildId:
+        description: "Unique build id (icon read from inputs/<buildId>/icon.png if present)"
+        required: true
+
+permissions:
+  contents: write   # needed to publish the APK as a Release asset
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup Java 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Scaffold Capacitor project
+        env:
+          APP_URL: ${{ inputs.url }}
+          APP_NAME: ${{ inputs.appName }}
+          APP_ID: ${{ inputs.packageId }}
+          THEME_COLOR: ${{ inputs.themeColor }}
+          ORIENTATION: ${{ inputs.orientation }}
+          PLATFORM: android
+        run: |
+          ICON="inputs/${{ inputs.buildId }}/icon.png"
+          if [ -f "$ICON" ]; then
+            echo "Using supplied icon $ICON"
+            export ICON_PATH="$ICON"
+          fi
+          node scripts/scaffold.mjs
+
+      - name: Build debug APK
+        working-directory: _build/android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Rename APK
+        run: |
+          mkdir -p out
+          APK=$(find _build/android -path '*/apk/debug/*.apk' | head -n1)
+          SAFE=$(echo "${{ inputs.appName }}" | tr ' ' '-' | tr -cd '[:alnum:]-_')
+          cp "$APK" "out/${SAFE}-debug.apk"
+          echo "APK_FILE=out/${SAFE}-debug.apk" >> "$GITHUB_ENV"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.appName }}-apk
+          path: ${{ env.APK_FILE }}
+
+      - name: Publish APK as Release (direct download link)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ inputs.buildId }}
+          name: ${{ inputs.appName }} (${{ inputs.buildId }})
+          body: |
+            Android debug APK built by WebToApk.
+            Site: ${{ inputs.url }}
+            Package: ${{ inputs.packageId }}
+          files: ${{ env.APK_FILE }}

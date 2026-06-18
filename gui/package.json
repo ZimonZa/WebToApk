@@ -1,0 +1,16 @@
+{
+  "name": "webtoapk-gui",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local GUI for WebToApk — paste a URL, build an app in the cloud",
+  "scripts": {
+    "start": "node server.mjs",
+    "gui": "node server.mjs"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "multer": "^2.0.1"
+  }
+}
