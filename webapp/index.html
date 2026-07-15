@@ -3,120 +3,347 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WebToApk — Website → App Builder</title>
+  <title>WebToApk — Turn any website into an app</title>
+  <meta name="description" content="Paste a website URL and build a real Android app in the cloud. Premium web-to-app builder." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%236366f1'/%3E%3Ctext x='50' y='68' font-size='60' text-anchor='middle' fill='white' font-family='Arial'%3EW%3C/text%3E%3C/svg%3E" />
   <style>
     :root {
-      --bg: #0b1020; --panel: #131a2e; --line: #243049; --text: #e7ecf5;
-      --muted: #93a0bd; --accent: #6366f1; --accent2: #22d3ee; --ok: #22c55e; --err: #f87171;
+      --bg: #070b16;
+      --glass: rgba(255, 255, 255, 0.045);
+      --glass-2: rgba(255, 255, 255, 0.07);
+      --line: rgba(255, 255, 255, 0.09);
+      --line-2: rgba(255, 255, 255, 0.14);
+      --text: #e9edf7;
+      --muted: #8b97b5;
+      --faint: #5f6c8c;
+      --accent: #6366f1;
+      --accent2: #22d3ee;
+      --violet: #8b5cf6;
+      --ok: #34d399;
+      --err: #fb7185;
+      --warn: #fbbf24;
+      --radius: 18px;
+      --shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.6);
     }
     * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; font-family: -apple-system, system-ui, Segoe UI, Roboto, sans-serif;
-      color: var(--text); background: radial-gradient(1200px 600px at 80% -10%, #1b2750 0%, var(--bg) 55%); }
-    .wrap { max-width: 760px; margin: 0 auto; padding: 36px 18px 80px; }
-    h1 { font-size: 28px; margin: 0 0 4px; }
-    h1 span { background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-    .sub { color: var(--muted); margin: 0 0 24px; font-size: 14px; }
-    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 22px; margin-bottom: 18px; }
-    .card h2 { font-size: 15px; margin: 0 0 4px; }
-    .card .desc { color: var(--muted); font-size: 12px; margin: 0 0 8px; }
-    details summary { cursor: pointer; color: var(--accent2); font-size: 13px; }
-    label { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 6px; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      font-family: 'Inter', -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    /* ambient neon glows */
+    body::before {
+      content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+      background:
+        radial-gradient(760px 520px at 82% -8%, rgba(99, 102, 241, 0.28), transparent 60%),
+        radial-gradient(680px 520px at 5% 8%, rgba(34, 211, 238, 0.16), transparent 55%),
+        radial-gradient(900px 700px at 50% 120%, rgba(139, 92, 246, 0.14), transparent 60%);
+    }
+    a { color: var(--accent2); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ---------- top bar ---------- */
+    .topbar {
+      position: sticky; top: 0; z-index: 50;
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px clamp(16px, 4vw, 40px);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      background: rgba(7, 11, 22, 0.6);
+      border-bottom: 1px solid var(--line);
+    }
+    .brand { display: flex; align-items: center; gap: 11px; font-weight: 700; font-size: 17px; letter-spacing: -0.02em; }
+    .brand .logo {
+      width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+      background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; font-weight: 800;
+      box-shadow: 0 6px 20px -6px var(--accent);
+    }
+    .brand .logo svg { width: 20px; height: 20px; }
+    .brand b { background: linear-gradient(90deg, #fff, #c7d2fe); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .conn-chip {
+      margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted);
+      padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--glass);
+      cursor: pointer; max-width: 46vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .conn-chip .pip { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
+    .conn-chip.on .pip { background: var(--ok); box-shadow: 0 0 10px var(--ok); }
+
+    /* ---------- hero ---------- */
+    .hero { text-align: center; padding: clamp(30px, 6vw, 60px) 20px clamp(6px, 2vw, 18px); }
+    .hero .eyebrow {
+      display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted);
+      padding: 6px 13px; border: 1px solid var(--line); border-radius: 999px; background: var(--glass); margin-bottom: 18px;
+    }
+    .hero h1 {
+      font-size: clamp(30px, 6vw, 52px); line-height: 1.04; margin: 0 0 14px; letter-spacing: -0.035em; font-weight: 800;
+    }
+    .hero h1 .grad { background: linear-gradient(100deg, var(--accent) 10%, var(--accent2) 55%, var(--violet) 95%);
+      -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .hero p { color: var(--muted); font-size: clamp(14px, 2.4vw, 17px); max-width: 560px; margin: 0 auto; line-height: 1.6; }
+
+    /* ---------- layout ---------- */
+    .layout {
+      max-width: 1160px; margin: 0 auto; padding: 24px clamp(16px, 4vw, 40px) 80px;
+      display: grid; grid-template-columns: 1fr; gap: 26px;
+    }
+    @media (min-width: 940px) { .layout { grid-template-columns: 1.15fr 0.85fr; align-items: start; } }
+
+    .card {
+      background: var(--glass); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 22px; margin-bottom: 20px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      box-shadow: var(--shadow);
+    }
+    .card + .card { margin-top: 0; }
+    .card h2 { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin: 0 0 4px; font-weight: 700; }
+    .card .desc { color: var(--faint); font-size: 12.5px; margin: 0 0 14px; line-height: 1.5; }
+    .card .head-row { display: flex; align-items: center; justify-content: space-between; }
+    .step-n { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 7px;
+      background: var(--glass-2); color: var(--accent2); font-size: 12px; font-weight: 800; margin-right: 8px; }
+
+    label { display: block; font-size: 12.5px; color: var(--muted); margin: 15px 0 7px; font-weight: 500; }
     input[type=text], input[type=url], input[type=password], select {
-      width: 100%; padding: 11px 13px; border-radius: 10px; border: 1px solid var(--line);
-      background: #0e1424; color: var(--text); font-size: 14px; outline: none; }
-    input:focus, select:focus { border-color: var(--accent); }
-    .row { display: flex; gap: 14px; flex-wrap: wrap; } .row > div { flex: 1; min-width: 180px; }
+      width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line-2);
+      background: rgba(3, 6, 14, 0.55); color: var(--text); font-size: 14.5px; outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    input::placeholder { color: var(--faint); }
+    input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.22); }
+    select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238b97b5'%3E%3Cpath d='M6 8L2 4h8z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+    .row { display: flex; gap: 14px; flex-wrap: wrap; }
+    .row > div { flex: 1; min-width: 150px; }
+    .hint { font-size: 11.5px; color: var(--faint); margin-top: 7px; line-height: 1.5; }
+
     .color-row { display: flex; gap: 10px; align-items: center; }
-    .color-row input[type=color] { width: 46px; height: 42px; padding: 0; border: 1px solid var(--line); border-radius: 10px; background: #0e1424; }
-    .seg { display: flex; gap: 8px; margin-top: 6px; }
-    .seg button { flex: 1; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: #0e1424; color: var(--muted); cursor: pointer; font-size: 13px; }
-    .seg button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-    .build { margin-top: 22px; width: 100%; padding: 14px; border: 0; border-radius: 12px; cursor: pointer;
-      font-size: 16px; font-weight: 600; color: #fff; background: linear-gradient(90deg, var(--accent), #8b5cf6); }
-    .build:disabled { opacity: .5; cursor: not-allowed; }
-    .hint { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
-    .saved { font-size: 12px; color: var(--ok); margin-left: 8px; }
-    #status { margin-top: 20px; display: none; } #status.show { display: block; }
-    .statusline { display: flex; align-items: center; gap: 10px; font-size: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: #0e1424; }
-    .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--accent2); animation: pulse 1s infinite; }
-    .dot.ok { background: var(--ok); animation: none; } .dot.err { background: var(--err); animation: none; }
-    @keyframes pulse { 50% { opacity: .35; } }
-    .dl { display: inline-block; margin-top: 14px; padding: 12px 18px; border-radius: 10px; background: var(--ok); color: #042; font-weight: 700; text-decoration: none; }
-    a.link { color: var(--accent2); }
-    .ios-note { font-size: 12px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
-    code { background: #0e1424; padding: 1px 6px; border-radius: 6px; color: var(--accent2); }
+    .color-row input[type=color] { width: 48px; height: 46px; padding: 0; border: 1px solid var(--line-2); border-radius: 12px; background: transparent; cursor: pointer; }
+
+    /* segmented */
+    .seg { display: flex; gap: 6px; padding: 5px; background: rgba(3, 6, 14, 0.5); border: 1px solid var(--line); border-radius: 13px; }
+    .seg button { flex: 1; padding: 10px; border-radius: 9px; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 13px; font-weight: 600; transition: .15s; }
+    .seg button.active { background: linear-gradient(135deg, var(--accent), var(--violet)); color: #fff; box-shadow: 0 6px 18px -8px var(--accent); }
+
+    /* toggle rows */
+    .toggle { display: flex; align-items: center; gap: 13px; padding: 13px 0; border-top: 1px solid var(--line); }
+    .toggle:first-of-type { border-top: 0; }
+    .toggle .ic { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; background: var(--glass-2); flex: none; }
+    .toggle .ic svg { width: 19px; height: 19px; stroke: var(--accent2); fill: none; stroke-width: 1.9; }
+    .toggle .tx { flex: 1; min-width: 0; }
+    .toggle .tx b { font-size: 14px; font-weight: 600; display: block; }
+    .toggle .tx span { font-size: 11.5px; color: var(--faint); }
+    .switch { position: relative; width: 46px; height: 27px; flex: none; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .switch .track { position: absolute; inset: 0; border-radius: 999px; background: rgba(255,255,255,0.12); transition: .2s; cursor: pointer; }
+    .switch .track::before { content: ""; position: absolute; width: 21px; height: 21px; left: 3px; top: 3px; border-radius: 50%; background: #fff; transition: .2s; }
+    .switch input:checked + .track { background: linear-gradient(135deg, var(--accent), var(--accent2)); }
+    .switch input:checked + .track::before { transform: translateX(19px); }
+
+    /* build button + status */
+    .build {
+      margin-top: 8px; width: 100%; padding: 16px; border: 0; border-radius: 14px; cursor: pointer;
+      font-size: 16px; font-weight: 700; color: #fff; letter-spacing: -0.01em;
+      background: linear-gradient(100deg, var(--accent), var(--violet) 60%, var(--accent2));
+      box-shadow: 0 14px 34px -12px rgba(99, 102, 241, 0.7); transition: transform .12s, filter .12s;
+    }
+    .build:hover { filter: brightness(1.08); }
+    .build:active { transform: translateY(1px); }
+    .build:disabled { opacity: .55; cursor: not-allowed; filter: none; }
+    #status { margin-top: 16px; display: none; }
+    #status.show { display: block; }
+    .statusline { display: flex; align-items: center; gap: 11px; font-size: 13.5px; padding: 13px 15px; border: 1px solid var(--line); border-radius: 13px; background: rgba(3,6,14,0.5); }
+    .dot { width: 11px; height: 11px; border-radius: 50%; background: var(--accent2); box-shadow: 0 0 10px var(--accent2); animation: pulse 1.1s infinite; flex: none; }
+    .dot.ok { background: var(--ok); box-shadow: 0 0 10px var(--ok); animation: none; }
+    .dot.err { background: var(--err); box-shadow: 0 0 10px var(--err); animation: none; }
+    @keyframes pulse { 50% { opacity: .3; } }
+    .dl { display: inline-flex; align-items: center; gap: 9px; margin-top: 14px; padding: 13px 20px; border-radius: 12px;
+      background: linear-gradient(135deg, var(--ok), #10b981); color: #042713; font-weight: 800; text-decoration: none;
+      box-shadow: 0 12px 30px -12px var(--ok); }
+    .banner { padding: 12px 14px; border-radius: 12px; font-size: 12.5px; margin-bottom: 16px; line-height: 1.5; }
+    .banner.warn { background: rgba(251, 113, 133, 0.1); border: 1px solid rgba(251, 113, 133, 0.3); color: #fecdd3; }
+
+    /* ---------- device preview ---------- */
+    .preview-wrap { position: sticky; top: 84px; }
+    .phone {
+      width: 100%; max-width: 300px; margin: 0 auto; aspect-ratio: 9 / 19.5;
+      border-radius: 40px; padding: 11px; position: relative;
+      background: linear-gradient(160deg, #1a2138, #0b0f1c);
+      border: 1px solid var(--line-2);
+      box-shadow: 0 40px 90px -30px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+    .screen { position: absolute; inset: 11px; border-radius: 30px; overflow: hidden; background: #000; display: flex; flex-direction: column; }
+    .notch { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); width: 108px; height: 24px; background: #05070d; border-radius: 0 0 16px 16px; z-index: 6; }
+    .statusbar { height: 34px; flex: none; display: flex; align-items: flex-end; justify-content: space-between; padding: 0 16px 5px; font-size: 10px; color: #fff; z-index: 5; }
+    .statusbar .r { display: flex; gap: 5px; align-items: center; }
+    .appbar { height: 44px; flex: none; display: flex; align-items: center; gap: 9px; padding: 0 13px; color: #fff; font-size: 13px; font-weight: 600; z-index: 5; }
+    .appbar .mini { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; font-size: 12px; font-weight: 800; color: #fff; }
+    .stage { position: relative; flex: 1; min-height: 0; background: #0b1020; }
+    .stage iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #fff; }
+    .splash { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; padding: 20px; }
+    .splash .icon { width: 84px; height: 84px; border-radius: 21px; display: grid; place-items: center; font-size: 44px; font-weight: 800; color: #fff; box-shadow: 0 16px 40px -12px rgba(0,0,0,0.6); background-size: cover; background-position: center; }
+    .splash .name { font-size: 16px; font-weight: 700; color: #fff; }
+    .splash .load-btn { margin-top: 4px; font-size: 11.5px; color: #fff; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.2); padding: 8px 14px; border-radius: 999px; cursor: pointer; }
+    .splash .blocked { font-size: 10.5px; color: rgba(255,255,255,0.7); max-width: 200px; line-height: 1.5; }
+    .pull-hint { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); font-size: 9.5px; color: rgba(255,255,255,0.55); display: flex; align-items: center; gap: 4px; z-index: 4; }
+    .reload-fab { position: absolute; right: 12px; bottom: 14px; width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.2); display: none; align-items: center; justify-content: center; z-index: 6; }
+    .reload-fab.on { display: flex; }
+    .reload-fab svg { width: 17px; height: 17px; stroke: #fff; fill: none; stroke-width: 2; }
+    .perm-badges { display: flex; gap: 6px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+    .perm-badges .b { font-size: 10.5px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; background: var(--glass); }
+    .preview-cap { text-align: center; color: var(--faint); font-size: 11.5px; margin-top: 14px; }
+
+    .foot { text-align: center; color: var(--faint); font-size: 12px; padding: 30px 20px 50px; }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1><span>WebToApk</span></h1>
-    <p class="sub">Paste a website URL → build a real Android app in the cloud. Runs entirely in your browser — your token never leaves this device.</p>
-
-    <!-- GitHub connection -->
-    <div class="card">
-      <h2>1. Connect GitHub <span id="connSaved" class="saved" style="display:none">saved ✓</span></h2>
-      <p class="desc">Needs a repo holding the WebToApk workflows, and a token to trigger builds. Stored only in your browser (localStorage).</p>
-      <div class="row">
-        <div>
-          <label>Owner (user/org)</label>
-          <input id="owner" type="text" placeholder="your-github-username" />
-        </div>
-        <div>
-          <label>Repo</label>
-          <input id="repo" type="text" placeholder="WebToApk" />
-        </div>
-        <div>
-          <label>Branch</label>
-          <input id="branch" type="text" placeholder="main" value="main" />
-        </div>
-      </div>
-      <label>GitHub token (PAT)</label>
-      <input id="token" type="password" placeholder="github_pat_… or ghp_…" />
-      <p class="hint">
-        Fine-grained PAT scoped to the repo: <b>Contents</b>, <b>Actions</b>, <b>Workflows</b> = Read &amp; write.
-        (Classic PAT: scopes <code>repo</code> + <code>workflow</code>.)
-        <a class="link" href="https://github.com/settings/tokens?type=beta" target="_blank">Create token →</a>
-      </p>
-      <button id="saveConn" class="build" style="margin-top:10px">Save connection</button>
+  <div class="topbar">
+    <div class="brand">
+      <span class="logo">W</span>
+      <span>Web<b>ToApk</b></span>
     </div>
-
-    <!-- App config -->
-    <div class="card">
-      <h2>2. Your app</h2>
-      <label>Website URL</label>
-      <input id="url" type="url" placeholder="https://example.com" />
-      <div class="row">
-        <div><label>App name</label><input id="appName" type="text" placeholder="My App" /></div>
-        <div><label>Package id</label><input id="packageId" type="text" placeholder="com.company.app" /></div>
-      </div>
-      <div class="row">
-        <div>
-          <label>Theme color</label>
-          <div class="color-row"><input id="themeColorPick" type="color" value="#111827" /><input id="themeColor" type="text" value="#111827" /></div>
-        </div>
-        <div>
-          <label>Orientation</label>
-          <select id="orientation"><option value="default">Default</option><option value="portrait">Portrait</option><option value="landscape">Landscape</option></select>
-        </div>
-      </div>
-      <label>App icon (optional, square PNG ≥ 512px)</label>
-      <input id="icon" type="file" accept="image/png,image/jpeg" />
-      <p class="hint">No icon? A clean default is generated from your theme color + app initial.</p>
-      <label>Platform</label>
-      <div class="seg" id="platformSeg">
-        <button type="button" data-p="android" class="active">Android (APK)</button>
-        <button type="button" data-p="ios">iOS (simulator)</button>
-      </div>
-      <button id="buildBtn" class="build">Build app</button>
-      <p class="ios-note" id="iosNote" style="display:none">
-        iOS builds free on a cloud Mac as an <b>unsigned simulator app</b>. Real iPhone / App Store needs an Apple Developer account ($99/yr).
-      </p>
-      <div id="status">
-        <div class="statusline"><span id="dot" class="dot"></span><span id="statusText">Starting…</span></div>
-        <div id="result"></div>
-      </div>
-    </div>
+    <div id="connChip" class="conn-chip"><span class="pip"></span><span id="connChipText">Not connected</span></div>
   </div>
+
+  <header class="hero">
+    <div class="eyebrow">⚡ Cloud-built · No installs · Free</div>
+    <h1>Turn any website into<br><span class="grad">a real mobile app</span></h1>
+    <p>Paste a URL, pick permissions, watch the live preview, and build a signed-for-testing Android APK in minutes — right from your browser.</p>
+  </header>
+
+  <div class="layout">
+    <!-- ============ left: builder ============ -->
+    <section class="builder">
+      <div id="cfgBanner" class="banner warn" style="display:none"></div>
+
+      <!-- connect -->
+      <div class="card">
+        <div class="head-row">
+          <h2><span class="step-n">1</span>Connect GitHub</h2>
+        </div>
+        <p class="desc">Builds run on GitHub Actions. Your token is stored only in this browser (localStorage) and sent straight to GitHub — never to us.</p>
+        <div class="row">
+          <div><label>Owner (user / org)</label><input id="owner" type="text" placeholder="your-username" /></div>
+          <div><label>Repo</label><input id="repo" type="text" placeholder="WebToApk" /></div>
+          <div style="max-width:110px"><label>Branch</label><input id="branch" type="text" value="main" /></div>
+        </div>
+        <label>GitHub token (PAT)</label>
+        <input id="token" type="password" placeholder="github_pat_… or ghp_…" autocomplete="off" />
+        <p class="hint">Fine-grained PAT on the repo: <b>Contents</b>, <b>Actions</b>, <b>Workflows</b> = Read &amp; write. (Classic: <b>repo</b> + <b>workflow</b>.) <a href="https://github.com/settings/tokens?type=beta" target="_blank">Create one →</a></p>
+        <button id="saveConn" class="build" style="margin-top:14px; font-size:14px; padding:13px">Save connection</button>
+      </div>
+
+      <!-- app config -->
+      <div class="card">
+        <h2><span class="step-n">2</span>Your app</h2>
+        <p class="desc">The essentials. The preview on the right updates as you type.</p>
+        <label>Website URL</label>
+        <input id="url" type="url" placeholder="https://example.com" />
+        <div class="row">
+          <div><label>App name</label><input id="appName" type="text" placeholder="My App" /></div>
+          <div><label>Package id</label><input id="packageId" type="text" placeholder="com.company.app" /></div>
+        </div>
+        <div class="row">
+          <div>
+            <label>Theme color</label>
+            <div class="color-row"><input id="themeColorPick" type="color" value="#6366f1" /><input id="themeColor" type="text" value="#6366f1" /></div>
+          </div>
+          <div>
+            <label>Orientation</label>
+            <select id="orientation"><option value="default">Free rotate</option><option value="portrait">Portrait</option><option value="landscape">Landscape</option></select>
+          </div>
+        </div>
+        <label>App icon (optional · square PNG ≥ 512px)</label>
+        <input id="icon" type="file" accept="image/png,image/jpeg" />
+        <p class="hint">No icon? A clean one is generated from your theme color + app initial (matches the preview).</p>
+      </div>
+
+      <!-- options -->
+      <div class="card">
+        <h2><span class="step-n">3</span>Permissions &amp; behavior</h2>
+        <p class="desc">Toggle what the app is allowed to do. Camera / mic / location only activate if the wrapped site actually requests them.</p>
+
+        <div class="toggle">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+          <div class="tx"><b>Camera</b><span>Photos, video, QR scanning</span></div>
+          <label class="switch"><input type="checkbox" id="permCamera" /><span class="track"></span></label>
+        </div>
+        <div class="toggle">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4"/></svg></div>
+          <div class="tx"><b>Microphone</b><span>Voice, audio recording</span></div>
+          <label class="switch"><input type="checkbox" id="permMic" /><span class="track"></span></label>
+        </div>
+        <div class="toggle">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+          <div class="tx"><b>Location</b><span>GPS / geolocation</span></div>
+          <label class="switch"><input type="checkbox" id="permLocation" /><span class="track"></span></label>
+        </div>
+        <div class="toggle">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+          <div class="tx"><b>Notifications</b><span>Allow web notifications</span></div>
+          <label class="switch"><input type="checkbox" id="permNotifications" /><span class="track"></span></label>
+        </div>
+        <div class="toggle">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg></div>
+          <div class="tx"><b>Swipe to refresh</b><span>Pull down to reload the page</span></div>
+          <label class="switch"><input type="checkbox" id="pullToRefresh" checked /><span class="track"></span></label>
+        </div>
+        <div class="toggle">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M23 4v6h-6"/><path d="M20.5 15a9 9 0 1 1-2.1-9.4L23 10"/></svg></div>
+          <div class="tx"><b>Show reload button</b><span>Floating reload button in-app</span></div>
+          <label class="switch"><input type="checkbox" id="showReload" /><span class="track"></span></label>
+        </div>
+      </div>
+
+      <!-- build -->
+      <div class="card">
+        <label style="margin-top:0">Platform</label>
+        <div class="seg" id="platformSeg">
+          <button type="button" data-p="android" class="active">🤖 Android (APK)</button>
+          <button type="button" data-p="ios">🍎 iOS (simulator)</button>
+        </div>
+        <p class="hint" id="iosNote" style="display:none">iOS builds free as an <b>unsigned simulator app</b>. A real iPhone / App Store needs an Apple Developer account ($99/yr).</p>
+        <button id="buildBtn" class="build" style="margin-top:16px">Build app 🚀</button>
+        <div id="status">
+          <div class="statusline"><span id="dot" class="dot"></span><span id="statusText">Starting…</span></div>
+          <div id="result"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ right: preview ============ -->
+    <aside class="preview">
+      <div class="preview-wrap">
+        <div class="phone">
+          <div class="notch"></div>
+          <div class="screen">
+            <div class="statusbar">
+              <span id="clock">9:41</span>
+              <span class="r">📶 &nbsp;🔋</span>
+            </div>
+            <div class="appbar" id="appbar">
+              <span class="mini" id="miniIcon">A</span>
+              <span id="appbarName">My App</span>
+            </div>
+            <div class="stage" id="stage">
+              <div class="pull-hint" id="pullHint">↓ pull to refresh</div>
+              <div class="splash" id="splash">
+                <div class="icon" id="previewIcon">A</div>
+                <div class="name" id="previewName">My App</div>
+                <button class="load-btn" id="loadPreview">▶ Load live site</button>
+                <div class="blocked" id="blockedNote" style="display:none"></div>
+              </div>
+              <div class="reload-fab" id="reloadFab"><svg viewBox="0 0 24 24"><path d="M23 4v6h-6"/><path d="M20.5 15a9 9 0 1 1-2.1-9.4L23 10"/></svg></div>
+            </div>
+          </div>
+        </div>
+        <div class="perm-badges" id="permBadges"></div>
+        <div class="preview-cap">Live preview · updates as you edit</div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="foot">Built with WebToApk · runs entirely in your browser + GitHub Actions</div>
 
   <script src="app.js"></script>
 </body>

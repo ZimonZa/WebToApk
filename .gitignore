@@ -1,13 +1,12 @@
 # dependencies
 node_modules/
-gui/node_modules/
 
 # secrets — NEVER commit
-gui/.env
 .env
+*.env
 
 # scaffold output (generated Capacitor project)
-_build/
+_build*/
 apps/
 
 # build artifacts

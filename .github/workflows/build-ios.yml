@@ -1,4 +1,5 @@
 name: Build iOS (unsigned / simulator)
+run-name: WebToApk iOS ${{ inputs.buildId }}
 
 # Free iOS build on a macOS runner. Produces an UNSIGNED simulator build.
 # NOTE: installing on a real iPhone or shipping to the App Store requires
@@ -6,21 +7,8 @@ name: Build iOS (unsigned / simulator)
 on:
   workflow_dispatch:
     inputs:
-      url:
-        description: "Website URL to wrap"
-        required: true
-      appName:
-        description: "App display name"
-        required: true
-      packageId:
-        description: "Reverse-DNS package id (com.company.app)"
-        required: true
-      themeColor:
-        description: "Theme/background hex color"
-        required: false
-        default: "#111827"
       buildId:
-        description: "Unique build id (icon read from inputs/<buildId>/icon.png if present)"
+        description: "Build id — reads inputs/<buildId>/config.json (+ optional icon.png)"
         required: true
 
 permissions:
@@ -33,22 +21,30 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Read build config
+        run: |
+          CFG="inputs/${{ inputs.buildId }}/config.json"
+          if [ ! -f "$CFG" ]; then echo "::error::config not found: $CFG"; exit 1; fi
+          {
+            echo "APP_URL=$(jq -r '.url' "$CFG")"
+            echo "APP_NAME=$(jq -r '.appName' "$CFG")"
+            echo "APP_ID=$(jq -r '.packageId' "$CFG")"
+            echo "THEME_COLOR=$(jq -r '.themeColor // "#111827"' "$CFG")"
+            echo "PERM_CAMERA=$(jq -r '.permissions.camera // false' "$CFG")"
+            echo "PERM_MIC=$(jq -r '.permissions.microphone // false' "$CFG")"
+            echo "PERM_LOCATION=$(jq -r '.permissions.location // false' "$CFG")"
+            echo "PLATFORM=ios"
+          } >> "$GITHUB_ENV"
+          ICON="inputs/${{ inputs.buildId }}/icon.png"
+          if [ -f "$ICON" ]; then echo "ICON_PATH=$ICON" >> "$GITHUB_ENV"; fi
+
       - name: Setup Node 20
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
       - name: Scaffold Capacitor project
-        env:
-          APP_URL: ${{ inputs.url }}
-          APP_NAME: ${{ inputs.appName }}
-          APP_ID: ${{ inputs.packageId }}
-          THEME_COLOR: ${{ inputs.themeColor }}
-          PLATFORM: ios
-        run: |
-          ICON="inputs/${{ inputs.buildId }}/icon.png"
-          if [ -f "$ICON" ]; then export ICON_PATH="$ICON"; fi
-          node scripts/scaffold.mjs
+        run: node scripts/scaffold.mjs
 
       - name: Build for iOS Simulator (unsigned)
         working-directory: _build/ios/App
@@ -65,10 +61,22 @@ jobs:
         run: |
           APP=$(find _build/ios/App/build -name "App.app" -type d | head -n1)
           mkdir -p out
-          cd "$(dirname "$APP")" && zip -r -y "$GITHUB_WORKSPACE/out/${{ inputs.appName }}-sim.app.zip" "App.app"
+          cd "$(dirname "$APP")" && zip -r -y "$GITHUB_WORKSPACE/out/${APP_NAME}-sim.app.zip" "App.app"
 
       - name: Upload simulator build
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.appName }}-ios-sim
+          name: ${{ env.APP_NAME }}-ios-sim
           path: out/*.zip
+
+      - name: Cleanup build inputs
+        if: always()
+        continue-on-error: true
+        run: |
+          git config user.name "webtoapk-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git rm -r --ignore-unmatch "inputs/${{ inputs.buildId }}" || exit 0
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: cleanup inputs ${{ inputs.buildId }}"
+          git pull --rebase origin main || true
+          git push || true

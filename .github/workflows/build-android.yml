@@ -1,32 +1,17 @@
 name: Build Android APK
+run-name: WebToApk ${{ inputs.buildId }}
 
-# Triggered by the WebToApk GUI (or manually from the Actions tab).
+# Triggered by the WebToApk web app (or manually from the Actions tab, once a
+# matching inputs/<buildId>/config.json exists on the branch).
 on:
   workflow_dispatch:
     inputs:
-      url:
-        description: "Website URL to wrap"
-        required: true
-      appName:
-        description: "App display name"
-        required: true
-      packageId:
-        description: "Reverse-DNS package id (com.company.app)"
-        required: true
-      themeColor:
-        description: "Theme/background hex color"
-        required: false
-        default: "#111827"
-      orientation:
-        description: "default | portrait | landscape"
-        required: false
-        default: "default"
       buildId:
-        description: "Unique build id (icon read from inputs/<buildId>/icon.png if present)"
+        description: "Build id — reads inputs/<buildId>/config.json (+ optional icon.png)"
         required: true
 
 permissions:
-  contents: write   # needed to publish the APK as a Release asset
+  contents: write   # publish the APK Release + clean up build inputs
 
 jobs:
   build:
@@ -34,6 +19,27 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Read build config
+        run: |
+          CFG="inputs/${{ inputs.buildId }}/config.json"
+          if [ ! -f "$CFG" ]; then echo "::error::config not found: $CFG"; exit 1; fi
+          {
+            echo "APP_URL=$(jq -r '.url' "$CFG")"
+            echo "APP_NAME=$(jq -r '.appName' "$CFG")"
+            echo "APP_ID=$(jq -r '.packageId' "$CFG")"
+            echo "THEME_COLOR=$(jq -r '.themeColor // "#111827"' "$CFG")"
+            echo "ORIENTATION=$(jq -r '.orientation // "default"' "$CFG")"
+            echo "PERM_CAMERA=$(jq -r '.permissions.camera // false' "$CFG")"
+            echo "PERM_MIC=$(jq -r '.permissions.microphone // false' "$CFG")"
+            echo "PERM_LOCATION=$(jq -r '.permissions.location // false' "$CFG")"
+            echo "PERM_NOTIFICATIONS=$(jq -r '.permissions.notifications // false' "$CFG")"
+            echo "PULL_REFRESH=$(jq -r '.pullToRefresh // false' "$CFG")"
+            echo "SHOW_RELOAD=$(jq -r '.showReload // false' "$CFG")"
+            echo "PLATFORM=android"
+          } >> "$GITHUB_ENV"
+          ICON="inputs/${{ inputs.buildId }}/icon.png"
+          if [ -f "$ICON" ]; then echo "ICON_PATH=$ICON" >> "$GITHUB_ENV"; fi
 
       - name: Setup Node 20
         uses: actions/setup-node@v4
@@ -50,20 +56,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Scaffold Capacitor project
-        env:
-          APP_URL: ${{ inputs.url }}
-          APP_NAME: ${{ inputs.appName }}
-          APP_ID: ${{ inputs.packageId }}
-          THEME_COLOR: ${{ inputs.themeColor }}
-          ORIENTATION: ${{ inputs.orientation }}
-          PLATFORM: android
-        run: |
-          ICON="inputs/${{ inputs.buildId }}/icon.png"
-          if [ -f "$ICON" ]; then
-            echo "Using supplied icon $ICON"
-            export ICON_PATH="$ICON"
-          fi
-          node scripts/scaffold.mjs
+        run: node scripts/scaffold.mjs
 
       - name: Build debug APK
         working-directory: _build/android
@@ -75,23 +68,35 @@ jobs:
         run: |
           mkdir -p out
           APK=$(find _build/android -path '*/apk/debug/*.apk' | head -n1)
-          SAFE=$(echo "${{ inputs.appName }}" | tr ' ' '-' | tr -cd '[:alnum:]-_')
+          SAFE=$(echo "$APP_NAME" | tr ' ' '-' | tr -cd '[:alnum:]-_')
           cp "$APK" "out/${SAFE}-debug.apk"
           echo "APK_FILE=out/${SAFE}-debug.apk" >> "$GITHUB_ENV"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.appName }}-apk
+          name: ${{ env.APP_NAME }}-apk
           path: ${{ env.APK_FILE }}
 
       - name: Publish APK as Release (direct download link)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ inputs.buildId }}
-          name: ${{ inputs.appName }} (${{ inputs.buildId }})
+          name: ${{ env.APP_NAME }} (${{ inputs.buildId }})
           body: |
             Android debug APK built by WebToApk.
-            Site: ${{ inputs.url }}
-            Package: ${{ inputs.packageId }}
+            Site: ${{ env.APP_URL }}
+            Package: ${{ env.APP_ID }}
           files: ${{ env.APK_FILE }}
+
+      - name: Cleanup build inputs
+        if: always()
+        continue-on-error: true
+        run: |
+          git config user.name "webtoapk-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git rm -r --ignore-unmatch "inputs/${{ inputs.buildId }}" || exit 0
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: cleanup inputs ${{ inputs.buildId }}"
+          git pull --rebase origin main || true
+          git push || true
